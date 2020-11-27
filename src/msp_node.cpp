@@ -86,13 +86,18 @@ public:
         double roll_r    = rates.angular_rates.x * 180 / M_PI / max_roll_r;
         double pitch_r   = rates.angular_rates.y * 180 / M_PI / max_pitch_r;
         double yaw_r     = rates.angular_rates.z * 180 / M_PI / max_yaw_r;
+        /*
         rcData[0] = (uint16_t) std::min(500,  std::max(-500, (int) round(roll_r  * 500))) + 1500;
         rcData[1] = (uint16_t) std::min(500,  std::max(-500, (int) round(pitch_r * 500))) + 1500;
         rcData[3] = (uint16_t) std::min(500,  std::max(-500, (int) round(yaw_r   * (-500)))) + 1500;
+        */
+        rcData[0] = (uint16_t) 1500; // throttle
+        rcData[1] = (uint16_t) 1500; // roll
+        rcData[3] = (uint16_t) 1500; // yaw
         
-        double thrust = rates.thrust.z / 9.81 / mass * hover_thrust;
-        rcData[2] = (uint16_t) std::min(1000, std::max(0, (int) round(thrust * 1000))) + 1000;
-
+        //double thrust = rates.thrust.z / 9.81 / mass * hover_thrust;
+        //rcData[2] = (uint16_t) std::min(1000, std::max(0, (int) round(thrust * 1000))) + 1000;
+        rcData[2] = (uint16_t) 1500; // pitch
         new_rates = true;
     }
 
@@ -128,7 +133,7 @@ int main(int argc, char** argv) {
     ros::NodeHandle n;
     ros::Rate rate(50);
 
-    MspInterface iface(n, "/dev/ttyACM0");
+    MspInterface iface(n, "/dev/ttyUSB0");
 
     ros::Subscriber sub_arm   = n.subscribe("/uav/control/arm", 1, &MspInterface::set_armed, &iface);
     ros::Subscriber sub_rates = n.subscribe("/uav/control/rate_thrust", 1, &MspInterface::set_rates, &iface);
