@@ -4,8 +4,16 @@
 #include <msp_fc_interface/RcData.h>
 #include "msp.hpp"
 
+#include "radar_avoid_msgs/Command.h"
+
 #include <algorithm>
 #include <cmath>
+
+#include <stdio.h>
+#include <unistd.h>
+#include <termios.h>
+
+#include <map>
 
 class MspInterface {
     MSP msp;
@@ -16,6 +24,10 @@ class MspInterface {
     double hover_thrust = 0.3;
     double mass = 1.0;
     bool new_rates = false;
+    uint16_t state_p = 1500;
+    uint16_t state_r = 1500;
+    uint16_t state_y = 1500;
+
     ros::Publisher pub_armed;
     ros::Publisher pub_offboard;
     ros::Publisher pub_rc;
@@ -90,15 +102,107 @@ public:
         rcData[0] = (uint16_t) std::min(500,  std::max(-500, (int) round(roll_r  * 500))) + 1500;
         rcData[1] = (uint16_t) std::min(500,  std::max(-500, (int) round(pitch_r * 500))) + 1500;
         rcData[3] = (uint16_t) std::min(500,  std::max(-500, (int) round(yaw_r   * (-500)))) + 1500;
-        */
+        
         rcData[0] = (uint16_t) 1500; // throttle
         rcData[1] = (uint16_t) 1500; // roll
         rcData[3] = (uint16_t) 1500; // yaw
+        rcData[2] = (uint16_t) 1500; // pitch
+        char key(' ');
+        key = getch();
+        if (key == 'D' || key == 'd'){
+            rcData[1] = (uint16_t) 1550;
+        } else if (key == 'A' || key == 'a') {
+            rcData[1] = (uint16_t) 1450;
+        } else if (key == 'W' || key == 'w') {
+            rcData[2] = (uint16_t) 1550;
+        } else if (key == 'S' || key == 's') {
+            rcData[2] = (uint16_t) 1450;
+        } else if (key == '\x03') {
+            ROS_INFO_STREAM("stopping...");
+            ros::shutdown();
+        }*/
         
         //double thrust = rates.thrust.z / 9.81 / mass * hover_thrust;
         //rcData[2] = (uint16_t) std::min(1000, std::max(0, (int) round(thrust * 1000))) + 1000;
-        rcData[2] = (uint16_t) 1500; // pitch
+        
         new_rates = true;
+    }
+
+    void set_keys(void) {
+        /*
+        double roll_r    = rates.angular_rates.x * 180 / M_PI / max_roll_r;
+        double pitch_r   = rates.angular_rates.y * 180 / M_PI / max_pitch_r;
+        double yaw_r     = rates.angular_rates.z * 180 / M_PI / max_yaw_r;
+        
+        rcData[0] = (uint16_t) std::min(500,  std::max(-500, (int) round(roll_r  * 500))) + 1500;
+        rcData[1] = (uint16_t) std::min(500,  std::max(-500, (int) round(pitch_r * 500))) + 1500;
+        rcData[3] = (uint16_t) std::min(500,  std::max(-500, (int) round(yaw_r   * (-500)))) + 1500;
+        */
+        rcData[0] = (uint16_t) 1500; // throttle
+        //rcData[1] = (uint16_t) 1500; // roll
+        //rcData[3] = (uint16_t) 1500; // yaw
+        //rcData[2] = (uint16_t) 1500; // pitch
+        char key(' ');
+        key = getch();
+        if ((key == 'D' || key == 'd') && state_p < 1600){
+            state_p += 10;
+        } else if ((key == 'A' || key == 'a') && state_p > 1400) {
+            state_p -= 10;
+        } else if ((key == 'W' || key == 'w') && state_r < 1600) {
+            state_r += 10;
+        } else if ((key == 'S' || key == 's') && state_r > 1400) {
+            state_r -= 10;
+        } else if ((key == 'Q' || key == 'q') && state_y > 1400) {
+            state_y -= 10;
+        } else if ((key == 'E' || key == 'e') && state_y < 1600) {
+            state_y += 10;
+        } else if (key == '\x03') {
+            ROS_INFO_STREAM("stopping...");
+            ros::shutdown();
+        }
+        rcData[2] = state_p;
+        rcData[1] = state_r;
+        rcData[3] = state_y;
+        //double thrust = rates.thrust.z / 9.81 / mass * hover_thrust;
+        //rcData[2] = (uint16_t) std::min(1000, std::max(0, (int) round(thrust * 1000))) + 1000;
+        
+        new_rates = true;
+    }
+
+    void handle_command(radar_avoid_msgs::Command command_msg) {
+        bool test_ros = command_msg.test_ros;
+        if (test_ros) {
+            ROS_INFO("true");
+        } else {
+            ROS_INFO("false");
+        }
+    }
+
+    int getch(void){
+        int ch;
+        struct termios oldt;
+        struct termios newt;
+
+        // Store old settings, and copy to new settings
+        tcgetattr(STDIN_FILENO, &oldt);
+        newt = oldt;
+
+        // Make required changes and apply the settings
+        newt.c_lflag &= ~(ICANON | ECHO);
+        newt.c_iflag |= IGNBRK;
+        newt.c_iflag &= ~(INLCR | ICRNL | IXON | IXOFF);
+        newt.c_lflag &= ~(ICANON | ECHO | ECHOK | ECHOE | ECHONL | ISIG | IEXTEN);
+        newt.c_cc[VMIN] = 0;
+        newt.c_cc[VTIME] = 0;
+        tcsetattr(fileno(stdin), TCSANOW, &newt);
+
+        // Get the current character
+        ch = getchar();
+
+        // Reapply old settings
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+        return ch;
     }
 
     void step_hf() {
@@ -137,6 +241,7 @@ int main(int argc, char** argv) {
 
     ros::Subscriber sub_arm   = n.subscribe("/uav/control/arm", 1, &MspInterface::set_armed, &iface);
     ros::Subscriber sub_rates = n.subscribe("/uav/control/rate_thrust", 1, &MspInterface::set_rates, &iface);
+    ros::Subscriber sub_radar_command  = n.subscribe("radar_commands", 1, &MspInterface::handle_command, &iface);
 
     int i = 0;
     while (ros::ok()) {
@@ -145,6 +250,7 @@ int main(int argc, char** argv) {
             iface.step_lf();
             i = 0;
         }
+        iface.set_keys();
         iface.step_hf();
         ros::spinOnce();
         rate.sleep();
