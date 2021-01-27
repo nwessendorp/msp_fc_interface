@@ -1,3 +1,4 @@
+#pragma once
 #include <vector>
 #include <map>
 #include <functional>
@@ -205,8 +206,7 @@ public:
         REBOOT = 68
     };
 
-    MSP(const std::string &port)
-        : device(port, 115200) {}
+    MSP() : device("/dev/ttyUSB0", 115200) {}
 
     void send_msg(unsigned char cmd, const Payload &payload) {
         device.write('$');

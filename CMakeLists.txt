@@ -35,6 +35,10 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(msp_fc_interface src/msp_node.cpp src/serial.cpp)
+add_executable(msp_fc_interface
+    src/msp_node.cpp
+    src/serial.cpp
+    src/AP.cpp
+    src/controller.cpp)
 target_link_libraries(msp_fc_interface
     ${catkin_LIBRARIES})

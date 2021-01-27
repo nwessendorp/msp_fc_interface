@@ -1,260 +1,92 @@
-#include <ros/ros.h>
-#include <std_msgs/Bool.h>
-#include <mav_msgs/RateThrust.h>
-#include <msp_fc_interface/RcData.h>
+// Adopted from AscendNTNU: 
+// https://github.com/AscendNTNU/msp_flightcontroller_interface
+
 #include "msp.hpp"
 
-#include "radar_avoid_msgs/Command.h"
-
 #include <algorithm>
-#include <cmath>
 
-#include <stdio.h>
-#include <unistd.h>
-#include <termios.h>
+// threading
+// #include <chrono>
+// #include <thread>
 
-#include <map>
 
-class MspInterface {
-    MSP msp;
-    std::vector<uint16_t> rcData;
-    double max_roll_r  = 200;
-    double max_pitch_r = 200;
-    double max_yaw_r   = 200;
-    double hover_thrust = 0.3;
-    double mass = 1.0;
-    bool new_rates = false;
-    uint16_t state_p = 1500;
-    uint16_t state_r = 1500;
-    uint16_t state_y = 1500;
+#include "msp_node.hpp"
 
-    ros::Publisher pub_armed;
-    ros::Publisher pub_offboard;
-    ros::Publisher pub_rc;
-    ros::Publisher pub_rc_cmd;
+Payload MspInterface::serialize_rc_data() {
+    Payload result;
+    for (int i = 0; i < (int) this->rcData.size(); i++) {
+        result.put_u16(this->rcData[i]);
+    }
+    return result;
+}
 
-    Payload serialize_rc_data() {
-        Payload result;
-        for (int i = 0; i < rcData.size(); i++) {
-            result.put_u16(rcData[i]);
+MspInterface::MspInterface() {
+
+    // Set thurst to 0
+    this->rcData[2] = 1000;
+
+    // https://stackoverflow.com/questions/42877001/how-do-i-read-gyro-information-from-cleanflight-using-msp
+    msp.register_callback(MSP::ATTITUDE, [this](Payload payload) {
+        std::vector<int16_t> attitudeData(payload.size() / 2);
+        for (int i = 0; i < (int) attitudeData.size(); i++) {
+            // mapping an unsigned to a signed?!
+            attitudeData[i] = payload.get_u16();
         }
 
-        return result;
-    }
+        std::vector<float> att_f (3, 0);
+        // weird 1/10 degree convention betaflight?
+        att_f[0] = ((float) attitudeData[0]) / 10.0;
+        att_f[1] = ((float) attitudeData[1]) / 10.0;
+        att_f[2] = ((float) attitudeData[2]);
 
-public:
-    MspInterface(ros::NodeHandle &n, const std::string &path)
-        : msp(path), rcData(5, 1500)
-    {
-        // Set thurst to 0
-        rcData[2] = 1000;
-
-        pub_armed = n.advertise<std_msgs::Bool>("/uav/state/armed", 1, true);
-        pub_offboard = n.advertise<std_msgs::Bool>("/uav/state/offboard", 1, true);
-        pub_rc = n.advertise<msp_fc_interface::RcData>("/uav/state/rc", 1, true);
-        pub_rc_cmd = n.advertise<msp_fc_interface::RcData>("/uav/state/rc_cmd", 1, true);
-
-        msp.register_callback(MSP::RC, [this](Payload payload) {
-            std::vector<uint16_t> droneRcData(payload.size() / 2);
-            for (int i = 0; i < droneRcData.size(); i++) {
-                droneRcData[i] = payload.get_u16();
-            }
-
-            std_msgs::Bool is_offboard;
-            is_offboard.data = droneRcData[5] > 1800;
-            pub_offboard.publish(is_offboard);
-
-            std_msgs::Bool is_armed;
-            is_armed.data = droneRcData[4] > 1800;
-            pub_armed.publish(is_armed);
-
-            msp_fc_interface::RcData rc_msg;
-            for (int i = 0; i < std::min(6, (int) droneRcData.size()); i++)
-                rc_msg.channels[i] = droneRcData[i];
-            pub_rc.publish(rc_msg);
+        // also weird frame transformation
+        //controller->robot.att.pitch = -D2R * att_f[1];
+        //controller->robot.att.roll  = D2R * att_f[0];
+        //controller->robot.att.yaw   = D2R * att_f[2];
         });
+}
 
-        // Get rateprofile params
-        n.param<double>("/rc_rates/roll",  max_roll_r, 1.0);
-        n.param<double>("/rc_rates/pitch", max_pitch_r, 1.0);
-        n.param<double>("/rc_rates/yaw",   max_yaw_r, 1.0);
-        n.param<double>("/rc_rates/hover_thrust", hover_thrust, 1.0);
-        n.param<double>("/uav/mass", mass, 1.0);
-        max_roll_r  *= 200;
-        max_pitch_r *= 200;
-        max_yaw_r   *= 200;
+void MspInterface::write_to_bf() {
+
+    this->rcData[0] = controller->state_t;
+    this->rcData[2] = controller->state_p;
+    this->rcData[1] = controller->state_r;
+    this->rcData[3] = controller->state_y;
+
+    // Send rc data
+    msp.send_msg(MSP::SET_RAW_RC, serialize_rc_data());
+
+    // Recieve new msp messages
+    msp.recv_msgs();
+}
+
+void MspInterface::read_from_bf() {
+    // Request telemetry
+    msp.send_msg(MSP::ATTITUDE, {});
+
+    // TODO: get also the arming signals for safety
+    // msp.send_msg(MSP::RC, {});
+
+    // Recieve new msp messages
+    msp.recv_msgs();
+}
+
+msp_node::msp_node() {
+    this->msp_node_thread_ = std::thread(&msp_node::msp_node_main, this);
+    printf("[msp] thread spawned!\n");
+}
+
+void msp_node::msp_node_main() {
+    while(1) {
+        iface.read_from_bf();
+        iface.write_to_bf();
+        // 100 Hz
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+}
 
-    void set_armed(std_msgs::Bool armed) {
-        if (armed.data) {
-            rcData[4] = 2000;
-        }
-        else {
-            rcData[4] = 1000;
-        }
-    }
-
-    void set_rates(mav_msgs::RateThrust rates) {
-        double roll_r    = rates.angular_rates.x * 180 / M_PI / max_roll_r;
-        double pitch_r   = rates.angular_rates.y * 180 / M_PI / max_pitch_r;
-        double yaw_r     = rates.angular_rates.z * 180 / M_PI / max_yaw_r;
-        /*
-        rcData[0] = (uint16_t) std::min(500,  std::max(-500, (int) round(roll_r  * 500))) + 1500;
-        rcData[1] = (uint16_t) std::min(500,  std::max(-500, (int) round(pitch_r * 500))) + 1500;
-        rcData[3] = (uint16_t) std::min(500,  std::max(-500, (int) round(yaw_r   * (-500)))) + 1500;
-        
-        rcData[0] = (uint16_t) 1500; // throttle
-        rcData[1] = (uint16_t) 1500; // roll
-        rcData[3] = (uint16_t) 1500; // yaw
-        rcData[2] = (uint16_t) 1500; // pitch
-        char key(' ');
-        key = getch();
-        if (key == 'D' || key == 'd'){
-            rcData[1] = (uint16_t) 1550;
-        } else if (key == 'A' || key == 'a') {
-            rcData[1] = (uint16_t) 1450;
-        } else if (key == 'W' || key == 'w') {
-            rcData[2] = (uint16_t) 1550;
-        } else if (key == 'S' || key == 's') {
-            rcData[2] = (uint16_t) 1450;
-        } else if (key == '\x03') {
-            ROS_INFO_STREAM("stopping...");
-            ros::shutdown();
-        }*/
-        
-        //double thrust = rates.thrust.z / 9.81 / mass * hover_thrust;
-        //rcData[2] = (uint16_t) std::min(1000, std::max(0, (int) round(thrust * 1000))) + 1000;
-        
-        new_rates = true;
-    }
-
-    void set_keys(void) {
-        /*
-        double roll_r    = rates.angular_rates.x * 180 / M_PI / max_roll_r;
-        double pitch_r   = rates.angular_rates.y * 180 / M_PI / max_pitch_r;
-        double yaw_r     = rates.angular_rates.z * 180 / M_PI / max_yaw_r;
-        
-        rcData[0] = (uint16_t) std::min(500,  std::max(-500, (int) round(roll_r  * 500))) + 1500;
-        rcData[1] = (uint16_t) std::min(500,  std::max(-500, (int) round(pitch_r * 500))) + 1500;
-        rcData[3] = (uint16_t) std::min(500,  std::max(-500, (int) round(yaw_r   * (-500)))) + 1500;
-        */
-        rcData[0] = (uint16_t) 1500; // throttle
-        //rcData[1] = (uint16_t) 1500; // roll
-        //rcData[3] = (uint16_t) 1500; // yaw
-        //rcData[2] = (uint16_t) 1500; // pitch
-        char key(' ');
-        key = getch();
-        if ((key == 'D' || key == 'd') && state_p < 1600){
-            state_p += 10;
-        } else if ((key == 'A' || key == 'a') && state_p > 1400) {
-            state_p -= 10;
-        } else if ((key == 'W' || key == 'w') && state_r < 1600) {
-            state_r += 10;
-        } else if ((key == 'S' || key == 's') && state_r > 1400) {
-            state_r -= 10;
-        } else if ((key == 'Q' || key == 'q') && state_y > 1400) {
-            state_y -= 10;
-        } else if ((key == 'E' || key == 'e') && state_y < 1600) {
-            state_y += 10;
-        } else if (key == '\x03') {
-            ROS_INFO_STREAM("stopping...");
-            ros::shutdown();
-        }
-        rcData[2] = state_p;
-        rcData[1] = state_r;
-        rcData[3] = state_y;
-        //double thrust = rates.thrust.z / 9.81 / mass * hover_thrust;
-        //rcData[2] = (uint16_t) std::min(1000, std::max(0, (int) round(thrust * 1000))) + 1000;
-        
-        new_rates = true;
-    }
-
-    void handle_command(radar_avoid_msgs::Command command_msg) {
-        bool test_ros = command_msg.test_ros;
-        if (test_ros) {
-            ROS_INFO("true");
-        } else {
-            ROS_INFO("false");
-        }
-    }
-
-    int getch(void){
-        int ch;
-        struct termios oldt;
-        struct termios newt;
-
-        // Store old settings, and copy to new settings
-        tcgetattr(STDIN_FILENO, &oldt);
-        newt = oldt;
-
-        // Make required changes and apply the settings
-        newt.c_lflag &= ~(ICANON | ECHO);
-        newt.c_iflag |= IGNBRK;
-        newt.c_iflag &= ~(INLCR | ICRNL | IXON | IXOFF);
-        newt.c_lflag &= ~(ICANON | ECHO | ECHOK | ECHOE | ECHONL | ISIG | IEXTEN);
-        newt.c_cc[VMIN] = 0;
-        newt.c_cc[VTIME] = 0;
-        tcsetattr(fileno(stdin), TCSANOW, &newt);
-
-        // Get the current character
-        ch = getchar();
-
-        // Reapply old settings
-        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-
-        return ch;
-    }
-
-    void step_hf() {
-        if (new_rates || rcData[2] <= 1000) {
-            msp_fc_interface::RcData rc_msg;
-            for (int i = 0; i < std::min(6, (int) rcData.size()); i++) {
-                rc_msg.channels[i] = rcData[i];
-            }
-            pub_rc_cmd.publish(rc_msg);
-
-            // Send rc data
-            msp.send_msg(MSP::SET_RAW_RC, serialize_rc_data());
-
-            // Recieve new msp messages
-            msp.recv_msgs();
-        }
-
-        new_rates = false;
-    }
-
-    void step_lf() {
-        // Request rc data
-        msp.send_msg(MSP::RC, {});
-
-        // Recieve new msp messages
-        msp.recv_msgs();
-    }
-};
-
-int main(int argc, char** argv) {
-    ros::init(argc, argv, "msp_fc_interface");
-    ros::NodeHandle n;
-    ros::Rate rate(50);
-
-    MspInterface iface(n, "/dev/ttyUSB0");
-
-    ros::Subscriber sub_arm   = n.subscribe("/uav/control/arm", 1, &MspInterface::set_armed, &iface);
-    ros::Subscriber sub_rates = n.subscribe("/uav/control/rate_thrust", 1, &MspInterface::set_rates, &iface);
-    ros::Subscriber sub_radar_command  = n.subscribe("radar_commands", 1, &MspInterface::handle_command, &iface);
-
-    int i = 0;
-    while (ros::ok()) {
-        i++;
-        if (i >= 10) {
-            iface.step_lf();
-            i = 0;
-        }
-        iface.set_keys();
-        iface.step_hf();
-        ros::spinOnce();
-        rate.sleep();
-    }
-
-    return 0;
+msp_node::~msp_node() {
+    msp_node_thread_.detach();
+    printf("[msp] thread killed!\n");
+    printf("[msp] sending disarm signal!\n");
 }
