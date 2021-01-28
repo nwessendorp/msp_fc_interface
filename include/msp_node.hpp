@@ -5,6 +5,7 @@
 #include <msp_fc_interface/RcData.h>
 #include "msp.hpp"
 #include "AP.hpp"
+#include "utils.h"
 
 #include "radar_avoid_msgs/Command.h"
 

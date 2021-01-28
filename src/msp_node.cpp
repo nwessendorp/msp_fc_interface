@@ -3,8 +3,6 @@
 
 #include "msp.hpp"
 
-#include <algorithm>
-
 // threading
 // #include <chrono>
 // #include <thread>
@@ -40,18 +38,25 @@ MspInterface::MspInterface() {
         att_f[2] = ((float) attitudeData[2]);
 
         // also weird frame transformation
-        //controller->robot.att.pitch = -D2R * att_f[1];
-        //controller->robot.att.roll  = D2R * att_f[0];
-        //controller->robot.att.yaw   = D2R * att_f[2];
+        controller->robot.att.pitch = -D2R * att_f[1];
+        controller->robot.att.roll  = D2R * att_f[0];
+        
+        //#ifdef HEADING_FROM_OPTITRACK
+        //# warning CAUTION: HEADING FROM OPTITRACK NOT TESTED!!
+        //#else 
+        float yaw_in_rad = D2R * att_f[2];
+        controller->robot.att.yaw = wrap_ang(yaw_in_rad);
+        //#endif
         });
 }
 
 void MspInterface::write_to_bf() {
 
-    this->rcData[0] = controller->state_t;
-    this->rcData[2] = controller->state_p;
-    this->rcData[1] = controller->state_r;
-    this->rcData[3] = controller->state_y;
+    //TAER
+    this->rcData[0] = controller->signals_i.thr; //t | t
+    this->rcData[2] = controller->signals_i.yb; //p | e
+    this->rcData[1] = controller->signals_i.xb; //r | a
+    this->rcData[3] = controller->signals_i.zb; //y | r
 
     // Send rc data
     msp.send_msg(MSP::SET_RAW_RC, serialize_rc_data());
