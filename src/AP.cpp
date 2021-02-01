@@ -22,7 +22,8 @@ AP::AP() {
 */
 
 void handle_command(radar_avoid_msgs::Command command_msg) {
-    controller->avoid = command_msg.avoid_state;
+    //controller->avoid = command_msg.avoid_state;
+    ROS_INFO("true");
     //bool test_ros = command_msg.test_ros;
     //if (test_ros) {
     //    ROS_INFO("true");
@@ -40,8 +41,10 @@ int main(int argc, char** argv) {
     
     controller = new Controller();// controller in seperate thread
     //gps = new NatNet(); Optitrack thread
+    #ifdef USE_NATNET
+    gps = new NatNet(); Optitrack thread
+    #endif
     msp = new msp_node();// MSP comminication handled in this thread
-    
     
     // All ROS communication handled here:
     //ros::Subscriber sub_arm   = n.subscribe("/uav/control/arm", 1, &MspInterface::set_armed, &iface);

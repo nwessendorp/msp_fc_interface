@@ -33,40 +33,38 @@ void Controller::avoid_obstacles() {
     this->signals_f.thr = 0.5;
     float velcmdbody_x = 0.5;// ms-1
     float velcmdbody_y = 0;// ms-1
+    #ifdef USE_VO
+    //VO
+    #else
     double current_tm;
-    if (this->avoid != 0 && controller_avoid == 0) {
-        controller_avoid = this->avoid;
+    if (this->avoid != 0 && this->controller_avoid == 0) {
+        this->controller_avoid = this->avoid;
         //current_tm = ros::Time::now().toSec();
         this->loop_index = 0;
     }
 
-    if (controller_avoid != 0) {
+    if (this->controller_avoid != 0) {
         velcmdbody_x = 0;
-        if (controller_avoid == 1) {
+        if (this->controller_avoid == 1) {
             velcmdbody_y = -0.5;// y axis points left
         } else {
             velcmdbody_y = 0.5;
         }
         this->loop_index += 1;
         if (this->loop_index > 75) {//1.5 seconds at 50hz
-            controller_avoid = 0;
+            this->controller_avoid = 0;
         }
     }
+    #endif
 
+    #ifdef USE_NATNET
     this->velocity_control(velcmdbody_x, velcmdbody_y);
-    /*
-    signal_f.thr = 0.5;
-    go forward (velocity velcmdbody_x = 0.5)
-    if obstacle (from dvs or radar):
-        velcmdbody_x = 0
-        velcmdbody_y = +-0.5 for ~1.5 sec
-        velcmdbody_y, velcmdbody_x = 0, 0.5
-    
-    from optitrack: if too close to pole or out of bounds
-        velcmdbody_x = 0
-    
-    this->velocity_control(velcmdbody_x, velcmdbody_y);
-    */
+    #else
+    //THIS SHOULD NOT BE USED, ONLY FOR TESTING
+    // should try to determine (crude) velocity state from radar/dvs (assuming static env)
+    this->signals_f.yb = 1500 + velcmdbody_x*40;
+    this->signals_f.xb = 1500 + velcmdbody_y*40;
+    #endif
 }
 
 void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
@@ -82,7 +80,7 @@ void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
 
     this->signals_f.yb = bound_f(accx_cmd_velFrame, -MAX_BANK, MAX_BANK);
     this->signals_f.xb = -1.0 * bound_f(accy_cmd_velFrame, -MAX_BANK, MAX_BANK);
-    this->signals_f.zb = 0; // TODO: yaw towards goal -> atan2(curr_error_pos_w_y, curr_error_pos_w_x);
+    //this->signals_f.zb = 0; // TODO: yaw towards goal -> atan2(curr_error_pos_w_y, curr_error_pos_w_x);
 }
 
 void Controller::attitude_control() {
@@ -166,10 +164,10 @@ void Controller::toActuators() {
 }
 
 //======================================== KEYBOARD ====================================================
-void Controller::change_input(void) {
-    char key(' ');
-    key = this->getch();
+void Controller::change_input(char key) {
+    #ifdef USE_NATNET
     if (key == 'U' || key == 'u'){
+        this->controller_avoid = 0;
         this->signals_i.thr = 1500;
         this->signals_i.yb = 1500; //p | e
         this->signals_i.xb = 1500; //r | a
@@ -179,12 +177,18 @@ void Controller::change_input(void) {
         } else if (this->input == 1) {
             this->input = 0;
         }
+    #else
+    if (key == 'U' || key == 'u'){
+        printf("\nWARNING: natnet not defined, cannot switch\n");
+    #endif
+    } else if (key == 'X' || key == 'x') {
+        this->avoid = 1;
+    } else if (key == 'Z' || key == 'z') {
+        this->avoid = -1;
     }
 }
 
-void Controller::set_keys(void) {
-    char key(' ');
-    key = this->getch();
+void Controller::set_keys(char key) {
     if ((key == 'D' || key == 'd') && this->signals_i.yb < 1600){
         this->signals_i.yb += 10;
     } else if ((key == 'A' || key == 'a') && this->signals_i.yb > 1400) {
@@ -213,11 +217,11 @@ int Controller::getch(void){
     newt = oldt;
 
     // Make required changes and apply the settings
-    newt.c_lflag &= ~(ECHO | ICANON);
-    //newt.c_lflag &= ~(ICANON | ECHO);
-    //newt.c_iflag |= IGNBRK;
-    //newt.c_iflag &= ~(INLCR | ICRNL | IXON | IXOFF);
-    //newt.c_lflag &= ~(ICANON | ECHO | ECHOK | ECHOE | ECHONL | ISIG | IEXTEN);
+    //newt.c_lflag &= ~(ECHO | ICANON);
+    newt.c_lflag &= ~(ICANON | ECHO);
+    newt.c_iflag |= IGNBRK;
+    newt.c_iflag &= ~(INLCR | ICRNL | IXON | IXOFF);
+    newt.c_lflag &= ~(ICANON | ECHO | ECHOK | ECHOE | ECHONL | ISIG | IEXTEN);
     newt.c_cc[VMIN] = 0;
     newt.c_cc[VTIME] = 0;
     tcsetattr(fileno(stdin), TCSANOW, &newt);
@@ -240,9 +244,11 @@ void Controller::control_job() {
     this->signals_i.xb = 1500; //r | a
     this->signals_i.zb = 1500; //y | r
     while(1) {
-        this->change_input();
+        char key(' ');
+        key = this->getch();
+        this->change_input(key);
         if (this->input == 0) {
-            this->set_keys();
+            this->set_keys(key);
         } else {
             this->avoid_obstacles();
             this->attitude_control();

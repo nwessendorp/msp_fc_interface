@@ -9,6 +9,9 @@
 #include "state.h"
 #include "utils.h"
 
+//#define USE_NATNET 0
+//#define USE_VO 0
+
 
 /* remap attitude signals, -1 to 1 is mapped to 1000 to 2000 
  * If this function returns value tmpval = 0, zero attitude command is sent to betaflight. */
@@ -44,8 +47,8 @@ class Controller {
         Controller();
         ~Controller();
         void control_job();
-        void change_input(void);
-        void set_keys(void);
+        void change_input(char key);
+        void set_keys(char key);
         int getch(void);
         //void control_job();
         //void altitude_control();
