@@ -34,6 +34,7 @@ void handle_command(radar_avoid_msgs::Command command_msg) {
 
 Controller *controller;
 msp_node *msp;
+NatNet *gps;
 int main(int argc, char** argv) {
     ros::init(argc, argv, "msp_fc_interface");
     ros::NodeHandle n;
@@ -42,7 +43,7 @@ int main(int argc, char** argv) {
     controller = new Controller();// controller in seperate thread
     //gps = new NatNet(); Optitrack thread
     #ifdef USE_NATNET
-    gps = new NatNet(); Optitrack thread
+    gps = new NatNet();// Optitrack thread
     #endif
     msp = new msp_node();// MSP comminication handled in this thread
     

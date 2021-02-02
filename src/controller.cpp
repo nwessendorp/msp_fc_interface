@@ -15,7 +15,7 @@
 #define SETPOINT_ALT (-1.5)
 
 #define KP_POS      1.0
-#define KP_VEL      1.2
+#define KP_VEL      3
 #define MAX_BANK    0.65   // 26 deg max bank
 #define K_FF        0.0
 #define MAX_VEL     2.5
@@ -38,7 +38,9 @@ void Controller::avoid_obstacles() {
     #else
     double current_tm;
     if (this->avoid != 0 && this->controller_avoid == 0) {
-        this->controller_avoid = this->avoid;
+	printf("Avoiding %d\n", this->avoid);
+	this->controller_avoid = this->avoid;
+	this->avoid = 0;
         //current_tm = ros::Time::now().toSec();
         this->loop_index = 0;
     }
@@ -58,7 +60,7 @@ void Controller::avoid_obstacles() {
     #endif
 
     #ifdef USE_NATNET
-    this->velocity_control(velcmdbody_x, velcmdbody_y);
+    this->velocity_control(0, velcmdbody_y);
     #else
     //THIS SHOULD NOT BE USED, ONLY FOR TESTING
     // should try to determine (crude) velocity state from radar/dvs (assuming static env)
@@ -71,7 +73,11 @@ void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
 
     float vel_x_est_velFrame =  cos(robot.att.yaw) * robot.vel.x - sin(robot.att.yaw) * robot.vel.y;
     float vel_y_est_velFrame =  sin(robot.att.yaw) * robot.vel.x + cos(robot.att.yaw) * robot.vel.y;
-
+    //if (this->loop_index == 50) {
+    //    printf("%f, %f\n", robot.vel.x, robot.vel.y);
+    //	this->loop_index = 0;
+    //}
+    //this->loop_index += 1;
     float curr_error_vel_x = velcmdbody_x - vel_x_est_velFrame;
     float curr_error_vel_y = velcmdbody_y - vel_y_est_velFrame;
 
@@ -167,7 +173,8 @@ void Controller::toActuators() {
 void Controller::change_input(char key) {
     #ifdef USE_NATNET
     if (key == 'U' || key == 'u'){
-        this->controller_avoid = 0;
+        printf("switched to onboard control\n");
+	this->controller_avoid = 0;
         this->signals_i.thr = 1500;
         this->signals_i.yb = 1500; //p | e
         this->signals_i.xb = 1500; //r | a
@@ -189,18 +196,18 @@ void Controller::change_input(char key) {
 }
 
 void Controller::set_keys(char key) {
-    if ((key == 'D' || key == 'd') && this->signals_i.yb < 1600){
-        this->signals_i.yb += 10;
-    } else if ((key == 'A' || key == 'a') && this->signals_i.yb > 1400) {
-        this->signals_i.yb -= 10;
-    } else if ((key == 'W' || key == 'w') && this->signals_i.xb < 1600) {
-        this->signals_i.xb += 10;
-    } else if ((key == 'S' || key == 's') && this->signals_i.xb > 1400) {
-        this->signals_i.xb -= 10;
-    } else if ((key == 'Q' || key == 'q') && this->signals_i.zb > 1400) {
-        this->signals_i.zb -= 10;
-    } else if ((key == 'E' || key == 'e') && this->signals_i.zb < 1600) {
-        this->signals_i.zb += 10;
+    if ((key == 'D' || key == 'd') && this->signals_i.yb < 1700){
+        this->signals_i.xb += 30;
+    } else if ((key == 'A' || key == 'a') && this->signals_i.yb > 1300) {
+        this->signals_i.xb -= 30;
+    } else if ((key == 'W' || key == 'w') && this->signals_i.xb < 1700) {
+        this->signals_i.yb += 30;
+    } else if ((key == 'S' || key == 's') && this->signals_i.xb > 1300) {
+        this->signals_i.yb -= 30;
+    } else if ((key == 'Q' || key == 'q') && this->signals_i.zb > 1300) {
+        this->signals_i.zb -= 30;
+    } else if ((key == 'E' || key == 'e') && this->signals_i.zb < 1700) {
+        this->signals_i.zb += 30;
     } else if (key == '\x03') {
         printf("stopping...\n");//ROS_INFO_STREAM
         ros::shutdown();

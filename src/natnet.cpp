@@ -43,7 +43,9 @@ void NatNet::natnet_rx() {
 	// start loop before arming
 	ros::Rate rate_2(500);
 	while(1) {
+                //print("running\n");
 		if (1){//st_mc->arm_status == ARM) {
+			
 			// TODO: circ buffer?
 			static unsigned char buffer_data[50];
 			static int bytes_data = 0;
@@ -78,12 +80,13 @@ void NatNet::natnet_rx() {
 
 					// if it is a safe number; then copy it to controller class
 					if (!chk) {
+                                                //printf("%f\n", probot.pos.x);
 						controller->robot.pos = probot.pos;
 						controller->robot.vel = probot.vel;
-						#ifdef HEADING_FROM_OPTITRACK
-						# warning CAUTION: HEADING FROM OPTITRACK NOT TESTED!! 
+						//#ifdef HEADING_FROM_OPTITRACK
+						//# warning CAUTION: HEADING FROM OPTITRACK NOT TESTED!! 
 						controller->robot.att.yaw = probot.att.yaw;
-						#endif
+						//#endif
 					} else {
 						// NaN or Inf
 						printf(COLOR_FBLACK);

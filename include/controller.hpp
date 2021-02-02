@@ -9,7 +9,7 @@
 #include "state.h"
 #include "utils.h"
 
-//#define USE_NATNET 0
+#define USE_NATNET 0
 //#define USE_VO 0
 
 

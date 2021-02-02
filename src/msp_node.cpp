@@ -45,7 +45,7 @@ MspInterface::MspInterface() {
         //# warning CAUTION: HEADING FROM OPTITRACK NOT TESTED!!
         //#else 
         float yaw_in_rad = D2R * att_f[2];
-        controller->robot.att.yaw = wrap_ang(yaw_in_rad);
+        //controller->robot.att.yaw = wrap_ang(yaw_in_rad);
         //#endif
         });
 }

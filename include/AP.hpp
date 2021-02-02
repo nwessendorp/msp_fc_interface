@@ -7,7 +7,7 @@
 #include "msp_node.hpp"
 #include <math.h>
 #include "controller.hpp"
-
+#include "natnet.hpp"
 
 #include "radar_avoid_msgs/Command.h"
 
@@ -21,6 +21,7 @@
 
 extern Controller *controller;
 //extern msp_node *msp;
+//extern NatNet *gps;
 /*
 //extern state_mc *st_mc;
 //extern Controller *controller;
