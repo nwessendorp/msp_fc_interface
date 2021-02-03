@@ -31,7 +31,7 @@
 //========================================== NAVIGATION ===============================================
 void Controller::avoid_obstacles() {
     this->signals_f.thr = 0.5;
-    float velcmdbody_x = 0.5;// ms-1
+    float velcmdbody_x = 0.8;// ms-1
     float velcmdbody_y = 0;// ms-1
     #ifdef USE_VO
     //VO
@@ -60,7 +60,7 @@ void Controller::avoid_obstacles() {
     #endif
 
     #ifdef USE_NATNET
-    this->velocity_control(0, velcmdbody_y);
+    this->velocity_control(velcmdbody_x, velcmdbody_y);
     #else
     //THIS SHOULD NOT BE USED, ONLY FOR TESTING
     // should try to determine (crude) velocity state from radar/dvs (assuming static env)
@@ -157,7 +157,7 @@ void Controller::toActuators() {
     }
 
     // float to uint16_t for sending over MSP UART
-	this->signals_i.thr = 1500;
+	this->signals_i.thr = 1800;
 	this->signals_i.xb  = remap_attitude_signals(this->signals_f.xb,   ATT_RCMIN, ATT_RCMAX);  // roll
 	this->signals_i.yb  = remap_attitude_signals(this->signals_f.yb,   ATT_RCMIN, ATT_RCMAX);  // pitch
 	this->signals_i.zb  = remap_attitude_signals(this->signals_f.zb,   ATT_YAW_RCMIN, ATT_YAW_RCMAX);  // yaw

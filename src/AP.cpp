@@ -21,9 +21,10 @@ AP::AP() {
 <node name="radar_server" pkg="radar_server" type="radar_server"></node>
 */
 
-void handle_command(radar_avoid_msgs::Command command_msg) {
-    //controller->avoid = command_msg.avoid_state;
-    ROS_INFO("true");
+void handle_command(const std_msgs::Int32::ConstPtr& command_msg) {
+    controller->avoid = command_msg->data;
+    ROS_INFO("Subscribed command: [%d]", command_msg->data);
+    //ROS_INFO("true");
     //bool test_ros = command_msg.test_ros;
     //if (test_ros) {
     //    ROS_INFO("true");
@@ -50,7 +51,7 @@ int main(int argc, char** argv) {
     // All ROS communication handled here:
     //ros::Subscriber sub_arm   = n.subscribe("/uav/control/arm", 1, &MspInterface::set_armed, &iface);
     //ros::Subscriber sub_rates = n.subscribe("/uav/control/rate_thrust", 1, &MspInterface::set_rates, &iface);
-    ros::Subscriber sub_radar_command  = n.subscribe("radar_commands", 1, handle_command);
+    ros::Subscriber sub_radar_command  = n.subscribe("/roll_command", 1, handle_command);
 
     int i = 0;
     while (ros::ok()) {
