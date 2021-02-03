@@ -10,6 +10,7 @@
 #include "natnet.hpp"
 
 #include "radar_avoid_msgs/Command.h"
+#include "std_msgs/Int32.h"
 
 #include <algorithm>
 #include <cmath>
