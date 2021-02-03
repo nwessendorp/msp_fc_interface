@@ -41,12 +41,12 @@ MspInterface::MspInterface() {
         controller->robot.att.pitch = -D2R * att_f[1];
         controller->robot.att.roll  = D2R * att_f[0];
         
-        //#ifdef HEADING_FROM_OPTITRACK
+        #ifdef HEADING_FROM_OPTITRACK
         //# warning CAUTION: HEADING FROM OPTITRACK NOT TESTED!!
-        //#else 
+        #else 
         float yaw_in_rad = D2R * att_f[2];
-        //controller->robot.att.yaw = wrap_ang(yaw_in_rad);
-        //#endif
+        controller->robot.att.yaw = wrap_ang(yaw_in_rad);
+        #endif
         });
 }
 

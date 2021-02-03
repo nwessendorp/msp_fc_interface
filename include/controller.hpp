@@ -10,6 +10,7 @@
 #include "utils.h"
 
 #define USE_NATNET 0
+#define HEADING_FROM_OPTITRACK 0
 //#define USE_VO 0
 
 
@@ -37,6 +38,10 @@ class Controller {
         int avoid = 0;// -1 = left, 0 = straight, 1 = right MODIFIED EXTERNALLY
         int controller_avoid = 0;// FOR INTERNAL STATE
         uint8_t loop_index = 0;
+        float last_error_vel_x = 0;
+        float last_error_vel_y = 0;
+        float dt = 0.02;
+        float yaw_setpoint;
 		/* signals_f for thrust must be between 0 to +1
 		   signals_f for attitude must be between -1 to +1 */
         signals<float> signals_f;

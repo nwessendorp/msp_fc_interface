@@ -83,10 +83,10 @@ void NatNet::natnet_rx() {
                                                 //printf("%f\n", probot.pos.x);
 						controller->robot.pos = probot.pos;
 						controller->robot.vel = probot.vel;
-						//#ifdef HEADING_FROM_OPTITRACK
+						#ifdef HEADING_FROM_OPTITRACK
 						//# warning CAUTION: HEADING FROM OPTITRACK NOT TESTED!! 
 						controller->robot.att.yaw = probot.att.yaw;
-						//#endif
+						#endif
 					} else {
 						// NaN or Inf
 						printf(COLOR_FBLACK);

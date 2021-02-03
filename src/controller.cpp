@@ -16,6 +16,8 @@
 
 #define KP_POS      1.0
 #define KP_VEL      3
+#define KD_VEL      1
+#define KI_VEL      1
 #define MAX_BANK    0.65   // 26 deg max bank
 #define K_FF        0.0
 #define MAX_VEL     2.5
@@ -62,7 +64,7 @@ void Controller::avoid_obstacles() {
     #ifdef USE_NATNET
     this->velocity_control(0, velcmdbody_y);
     #else
-    //THIS SHOULD NOT BE USED, ONLY FOR TESTING
+    # warning CAUTION: THIS SHOULD NOT BE USED, ONLY FOR TESTING
     // should try to determine (crude) velocity state from radar/dvs (assuming static env)
     this->signals_f.yb = 1500 + velcmdbody_x*40;
     this->signals_f.xb = 1500 + velcmdbody_y*40;
@@ -73,16 +75,21 @@ void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
 
     float vel_x_est_velFrame =  cos(robot.att.yaw) * robot.vel.x - sin(robot.att.yaw) * robot.vel.y;
     float vel_y_est_velFrame =  sin(robot.att.yaw) * robot.vel.x + cos(robot.att.yaw) * robot.vel.y;
-    //if (this->loop_index == 50) {
-    //    printf("%f, %f\n", robot.vel.x, robot.vel.y);
-    //	this->loop_index = 0;
-    //}
-    //this->loop_index += 1;
+
     float curr_error_vel_x = velcmdbody_x - vel_x_est_velFrame;
     float curr_error_vel_y = velcmdbody_y - vel_y_est_velFrame;
 
-    float accx_cmd_velFrame = curr_error_vel_x * KP_VEL + K_FF * velcmdbody_x;
-    float accy_cmd_velFrame = curr_error_vel_y * KP_VEL + K_FF * velcmdbody_y;
+    float D_error_x = (curr_error_vel_x - last_error_vel_x)/dt;
+    float D_error_y = (curr_error_vel_y - last_error_vel_y)/dt;
+
+    float I_error_x = (curr_error_vel_x + last_error_vel_x)*0.5*dt;
+    float I_error_y = (curr_error_vel_y + last_error_vel_y)*0.5*dt;
+
+    last_error_vel_x = curr_error_vel_x;
+    last_error_vel_y = curr_error_vel_y;
+
+    float accx_cmd_velFrame = curr_error_vel_x * KP_VEL + D_error_x * KD_VEL + I_error_x * KI_VEL;//K_FF * velcmdbody_x;
+    float accy_cmd_velFrame = curr_error_vel_y * KP_VEL + D_error_y * KD_VEL + I_error_y * KI_VEL;//K_FF * velcmdbody_y;
 
     this->signals_f.yb = bound_f(accx_cmd_velFrame, -MAX_BANK, MAX_BANK);
     this->signals_f.xb = -1.0 * bound_f(accy_cmd_velFrame, -MAX_BANK, MAX_BANK);
@@ -90,9 +97,9 @@ void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
 }
 
 void Controller::attitude_control() {
-    float setpoint = -80.0 * D2R;
-    float yawerror = setpoint - this->robot.att.yaw;
-    this->signals_f.zb = 0;//= bound_f(KP_YAW * yawerror, -MAX_YAW_RATE, MAX_YAW_RATE);
+    //float setpoint = -80.0 * D2R;
+    float yawerror = yaw_setpoint - this->robot.att.yaw;
+    this->signals_f.zb = bound_f(KP_YAW * yawerror, -MAX_YAW_RATE, MAX_YAW_RATE);
 }
 
 // bound rate of change of these signals 
@@ -173,15 +180,18 @@ void Controller::toActuators() {
 void Controller::change_input(char key) {
     #ifdef USE_NATNET
     if (key == 'U' || key == 'u'){
-        printf("switched to onboard control\n");
-	this->controller_avoid = 0;
+	    this->controller_avoid = 0;
         this->signals_i.thr = 1500;
         this->signals_i.yb = 1500; //p | e
         this->signals_i.xb = 1500; //r | a
         this->signals_i.zb = 1500; //y | r
         if (this->input == 0) {
+            printf("switched to onboard control\n");
+            printf("setting fixed yaw orientation...");
+            yaw_setpoint = this->robot.att.yaw;
             this->input = 1;
         } else if (this->input == 1) {
+            printf("switched to key control\n");
             this->input = 0;
         }
     #else
