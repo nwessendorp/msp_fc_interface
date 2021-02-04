@@ -16,8 +16,8 @@
 
 #define KP_POS      1.0
 #define KP_VEL      3
-#define KD_VEL      0
-#define KI_VEL      0
+#define KD_VEL      1
+#define KI_VEL      1
 #define MAX_BANK    0.65   // 26 deg max bank
 #define K_FF        0.0
 #define MAX_VEL     2.5
@@ -180,6 +180,11 @@ void Controller::toActuators() {
 //======================================== KEYBOARD ====================================================
 void Controller::change_input(char key) {
     #ifdef USE_NATNET
+    if (channel2_curr > 1700 && channel2_prev < 1700){
+        yaw_setpoint = this->robot.att.yaw;
+        printf("switched to onboard control\n"); 
+        printf("setting fixed yaw orientation...");
+    }
     if (key == 'U' || key == 'u'){
 	    this->controller_avoid = 0;
         this->signals_i.thr = 1500;
@@ -187,9 +192,6 @@ void Controller::change_input(char key) {
         this->signals_i.xb = 1500; //r | a
         this->signals_i.zb = 1500; //y | r
         if (this->input == 0) {
-            printf("switched to onboard control\n");
-            printf("setting fixed yaw orientation...");
-            yaw_setpoint = this->robot.att.yaw;
             this->input = 1;
         } else if (this->input == 1) {
             printf("switched to key control\n");
@@ -261,6 +263,7 @@ void Controller::control_job() {
     this->signals_i.yb = 1500; //p | e
     this->signals_i.xb = 1500; //r | a
     this->signals_i.zb = 1500; //y | r
+    yaw_setpoint = this->robot.att.yaw;
     while(1) {
         char key(' ');
         key = this->getch();

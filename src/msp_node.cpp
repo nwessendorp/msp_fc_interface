@@ -48,6 +48,16 @@ MspInterface::MspInterface() {
         controller->robot.att.yaw = wrap_ang(yaw_in_rad);
         #endif
         });
+    
+    msp.register_callback(MSP::RC, [this](Payload payload) {
+        std::vector<uint16_t> droneRcData(payload.size() / 2);
+        for (int i = 0; i < droneRcData.size(); i++) {
+            droneRcData[i] = payload.get_u16();
+        }
+
+        controller->channel2_prev = controller->channel2_curr;
+        controller->channel2_curr = droneRcData[5];
+        });
 }
 
 void MspInterface::write_to_bf() {

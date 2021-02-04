@@ -7,8 +7,6 @@
 #include "AP.hpp"
 #include "utils.h"
 
-#include "radar_avoid_msgs/Command.h"
-
 #include <algorithm>
 #include <cmath>
 

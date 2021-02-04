@@ -33,7 +33,7 @@ class Controller {
         std::thread control_job_; 
 
     public:
-        uint8_t input = 0;
+        uint8_t input = 1;
         robot_t robot;
         int avoid = 0;// -1 = left, 0 = straight, 1 = right MODIFIED EXTERNALLY
         int controller_avoid = 0;// FOR INTERNAL STATE
@@ -42,6 +42,8 @@ class Controller {
         float last_error_vel_y = 0;
         float dt = 0.02;
         float yaw_setpoint;
+        uint16_t channel2_curr;// to see when switched to onboard ctrl
+        uint16_t channel2_prev;
 		/* signals_f for thrust must be between 0 to +1
 		   signals_f for attitude must be between -1 to +1 */
         signals<float> signals_f;
