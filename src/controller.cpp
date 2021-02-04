@@ -79,7 +79,6 @@ void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
     float curr_error_vel_x = velcmdbody_x - vel_x_est_velFrame;
     float curr_error_vel_y = velcmdbody_y - vel_y_est_velFrame;
     
-    printf("%f\n", curr_error_vel_x);
     float D_error_x = (curr_error_vel_x - last_error_vel_x)/dt;
     float D_error_y = (curr_error_vel_y - last_error_vel_y)/dt;
 
@@ -97,9 +96,12 @@ void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
     //this->signals_f.zb = 0; // TODO: yaw towards goal -> atan2(curr_error_pos_w_y, curr_error_pos_w_x);
 }
 
+/**
+ * Function to control (fixed) yaw
+ */
 void Controller::attitude_control() {
     //float setpoint = -80.0 * D2R;
-    float yawerror = yaw_setpoint - this->robot.att.yaw;
+    float yawerror = this->yaw_setpoint - this->robot.att.yaw;
     this->signals_f.zb = bound_f(KP_YAW * yawerror, -MAX_YAW_RATE, MAX_YAW_RATE);
 }
 
@@ -178,10 +180,14 @@ void Controller::toActuators() {
 }
 
 //======================================== KEYBOARD ====================================================
+/**
+ * Function to change input from controller to keyboard control
+ * Will also check if channel override is engaged, and set yawpoint
+ */
 void Controller::change_input(char key) {
     #ifdef USE_NATNET
-    if (channel2_curr > 1700 && channel2_prev < 1700){
-        yaw_setpoint = this->robot.att.yaw;
+    if (this->channel2_curr > 1700 && this->channel2_prev < 1700){
+        this->yaw_setpoint = this->robot.att.yaw;
         printf("switched to onboard control\n"); 
         printf("setting fixed yaw orientation...");
     }
@@ -263,7 +269,7 @@ void Controller::control_job() {
     this->signals_i.yb = 1500; //p | e
     this->signals_i.xb = 1500; //r | a
     this->signals_i.zb = 1500; //y | r
-    yaw_setpoint = this->robot.att.yaw;
+    this->yaw_setpoint = this->robot.att.yaw;
     while(1) {
         char key(' ');
         key = this->getch();
