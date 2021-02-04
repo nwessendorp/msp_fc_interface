@@ -16,8 +16,8 @@
 
 #define KP_POS      1.0
 #define KP_VEL      3
-#define KD_VEL      1
-#define KI_VEL      1
+#define KD_VEL      0
+#define KI_VEL      0
 #define MAX_BANK    0.65   // 26 deg max bank
 #define K_FF        0.0
 #define MAX_VEL     2.5
@@ -75,10 +75,11 @@ void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
 
     float vel_x_est_velFrame =  cos(robot.att.yaw) * robot.vel.x - sin(robot.att.yaw) * robot.vel.y;
     float vel_y_est_velFrame =  sin(robot.att.yaw) * robot.vel.x + cos(robot.att.yaw) * robot.vel.y;
-
+    
     float curr_error_vel_x = velcmdbody_x - vel_x_est_velFrame;
     float curr_error_vel_y = velcmdbody_y - vel_y_est_velFrame;
-
+    
+    printf("%f\n", curr_error_vel_x);
     float D_error_x = (curr_error_vel_x - last_error_vel_x)/dt;
     float D_error_y = (curr_error_vel_y - last_error_vel_y)/dt;
 
