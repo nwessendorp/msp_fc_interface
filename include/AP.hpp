@@ -1,8 +1,6 @@
 #pragma once
 #include <ros/ros.h>
 #include <std_msgs/Bool.h>
-#include <mav_msgs/RateThrust.h>
-#include <msp_fc_interface/RcData.h>
 #include "msp.hpp"
 #include "msp_node.hpp"
 #include <math.h>

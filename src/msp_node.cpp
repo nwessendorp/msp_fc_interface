@@ -80,7 +80,7 @@ void MspInterface::read_from_bf() {
     msp.send_msg(MSP::ATTITUDE, {});
 
     // TODO: get also the arming signals for safety
-    // msp.send_msg(MSP::RC, {});
+    msp.send_msg(MSP::RC, {});
 
     // Recieve new msp messages
     msp.recv_msgs();
