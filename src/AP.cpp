@@ -26,8 +26,9 @@ void dvs_cmd_callback(const std_msgs::Int32::ConstPtr& msg) {
     ROS_INFO("Subscribed DVS command: [%d]", msg->data);
 }
 
-void radar_cmd_callback(radar_avoid_msgs::Command command_msg) {
-    controller->avoid = command_msg.avoid_state;
+void radar_cmd_callback(const radar_avoid_msgs::Command::ConstPtr& command_msg) {
+    controller->avoid = command_msg->avoid_state;
+    //ROS_INFO("Subscribed Radar command: [%d]", command_msg->avoid_state);
     //ROS_INFO("Subscribed Radar command: [%d]", command_msg->avoid_state);
 }
 
@@ -48,7 +49,7 @@ int main(int argc, char** argv) {
     
     // All ROS communication handled here:
     ros::Subscriber sub_dvs_cmd  = n.subscribe("/roll_command", 1, dvs_cmd_callback);
-    ros::Subscriber sub_radar_cmd  = n.subscribe("radar_commands", 1, dvs_cmd_callback);
+    ros::Subscriber sub_radar_cmd  = n.subscribe("radar_commands", 1, radar_cmd_callback);
 
     int i = 0;
     while (ros::ok()) {
