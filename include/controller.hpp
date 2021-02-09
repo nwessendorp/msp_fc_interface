@@ -42,6 +42,7 @@ class Controller {
         float last_error_vel_y = 0;
         float dt = 0.02;
         float yaw_setpoint;
+        uint16_t channel3_curr;// to see when switched to onboard ctrl
         uint16_t channel2_curr;// to see when switched to onboard ctrl
         uint16_t channel2_prev;
 		/* signals_f for thrust must be between 0 to +1

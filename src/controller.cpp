@@ -17,7 +17,7 @@
 #define KP_POS      1.0
 #define KP_VEL      3
 #define KD_VEL      1
-#define KI_VEL      1
+#define KI_VEL      0.5
 #define MAX_BANK    0.65   // 26 deg max bank
 #define K_FF        0.0
 #define MAX_VEL     2.5
@@ -32,7 +32,7 @@
 
 //========================================== NAVIGATION ===============================================
 void Controller::avoid_obstacles() {
-    this->signals_f.thr = 0.5;
+    this->signals_f.thr = 0.3;
     float velcmdbody_x = 0.8;// ms-1
     float velcmdbody_y = 0;// ms-1
     #ifdef USE_VO
@@ -65,7 +65,7 @@ void Controller::avoid_obstacles() {
     this->velocity_control(velcmdbody_x, velcmdbody_y);
     #else
     # warning CAUTION: THIS SHOULD NOT BE USED, ONLY FOR TESTING
-    // should try to determine (crude) velocity state from radar/dvs (assuming static env)
+    // should try to determine (crude) velocity state from radar/dvs (assuming static env, or OPTICAL FLOW)
     this->signals_f.yb = 1500 + velcmdbody_x*40;
     this->signals_f.xb = 1500 + velcmdbody_y*40;
     #endif
@@ -167,7 +167,12 @@ void Controller::toActuators() {
     }
 
     // float to uint16_t for sending over MSP UART
-	this->signals_i.thr = 1800;
+    // Check if surface mode is engaged, otherwise put thrust low:
+    if (this->channel3_curr < 1600) {
+        this->signals_i.thr = 1200;
+    } else {
+        this->signals_i.thr = 1500;
+    }
 	this->signals_i.xb  = remap_attitude_signals(this->signals_f.xb,   ATT_RCMIN, ATT_RCMAX);  // roll
 	this->signals_i.yb  = remap_attitude_signals(this->signals_f.yb,   ATT_RCMIN, ATT_RCMAX);  // pitch
 	this->signals_i.zb  = remap_attitude_signals(this->signals_f.zb,   ATT_YAW_RCMIN, ATT_YAW_RCMAX);  // yaw
@@ -185,22 +190,23 @@ void Controller::toActuators() {
  * Will also check if channel override is engaged, and set yawpoint
  */
 void Controller::change_input(char key) {
-    #ifdef USE_NATNET
+    // Switch to MSP override:
     if (this->channel2_curr > 1700 && this->channel2_prev < 1700){
-        this->yaw_setpoint = this->robot.att.yaw;
+        this->yaw_setpoint = this->robot.att.yaw;//from natnet or current orientation from inav
         printf("switched to onboard control\n"); 
         printf("setting fixed yaw orientation...");
     }
+    #ifdef USE_NATNET
     if (key == 'U' || key == 'u'){
 	    this->controller_avoid = 0;
-        this->signals_i.thr = 1500;
+        this->signals_i.thr = 1300;
         this->signals_i.yb = 1500; //p | e
         this->signals_i.xb = 1500; //r | a
         this->signals_i.zb = 1500; //y | r
         if (this->input == 0) {
             this->input = 1;
         } else if (this->input == 1) {
-            printf("switched to key control\n");
+            printf("switched control\n");
             this->input = 0;
         }
     #else
@@ -265,7 +271,7 @@ int Controller::getch(void){
 
 void Controller::control_job() {
     ros::Rate rate_1(50);
-    this->signals_i.thr = 1500;
+    this->signals_i.thr = 1300;
     this->signals_i.yb = 1500; //p | e
     this->signals_i.xb = 1500; //r | a
     this->signals_i.zb = 1500; //y | r

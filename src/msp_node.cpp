@@ -55,6 +55,7 @@ MspInterface::MspInterface() {
             droneRcData[i] = payload.get_u16();
         }
 
+        controller->channel3_curr = droneRcData[6];
         controller->channel2_prev = controller->channel2_curr;
         controller->channel2_curr = droneRcData[5];
         });
