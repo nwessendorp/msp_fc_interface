@@ -61,6 +61,7 @@
   <depend>mav_msgs</depend>
   <build_depend>message_generation</build_depend>
   <exec_depend>message_runtime</exec_depend>
+  <depend>radar_avoid_msgs</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
