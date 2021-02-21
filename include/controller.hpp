@@ -11,7 +11,7 @@
 
 #define USE_NATNET 0
 #define HEADING_FROM_OPTITRACK 0
-//#define USE_VO 0
+#define USE_VO 0
 
 
 /* remap attitude signals, -1 to 1 is mapped to 1000 to 2000 
@@ -30,21 +30,44 @@ inline uint16_t remap_attitude_signals(float val, uint16_t min, uint16_t max) {
 
 class Controller {
     private:
-        std::thread control_job_; 
+        std::thread control_job_;
+        //Internal avoidance state:
+        int controller_avoid = 0;
+
+        //Internal avoidance velocity vector:
+        double controller_vx = 0;// same same but different
+        double controller_vy = 0;
+
+        //yaw setpoint when switching over to autonomous control:
+        float yaw_setpoint;
 
     public:
         uint8_t input = 1;
         robot_t robot;
+
+        //Avoidance state:
         int avoid = 0;// -1 = left, 0 = straight, 1 = right MODIFIED EXTERNALLY
-        int controller_avoid = 0;// FOR INTERNAL STATE
+
+        //Avoidance velocity vector:
+        double v_xa_des = 0;// velocity obstacles desired velcmdbody_x
+        double v_ya_des = 0;
+
         uint8_t loop_index = 0;
+
+        //for DI control:
         float last_error_vel_x = 0;
         float last_error_vel_y = 0;
         float dt = 0.02;
-        float yaw_setpoint;
+
+        // For monitoring when switching to autonomous control
         uint16_t channel3_curr;// to see when switched to onboard ctrl
         uint16_t channel2_curr;// to see when switched to onboard ctrl
         uint16_t channel2_prev;
+
+        //Current velocity vector to transmit to radar
+        float vel_x_est_velFrame;
+        float vel_y_est_velFrame;
+        
 		/* signals_f for thrust must be between 0 to +1
 		   signals_f for attitude must be between -1 to +1 */
         signals<float> signals_f;

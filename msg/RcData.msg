@@ -1,1 +1,1 @@
-int16[6] channels
+float32[2] state

@@ -36,17 +36,36 @@ void Controller::avoid_obstacles() {
     float velcmdbody_x = 0.8;// ms-1
     float velcmdbody_y = 0;// ms-1
     #ifdef USE_VO
-    //VO
-    #else
-    double current_tm;
+
+    // If sensors give avoidance command, and not in avoidance state:
     if (this->avoid != 0 && this->controller_avoid == 0) {
-	printf("Avoiding %d\n", this->avoid);
-	this->controller_avoid = this->avoid;
-	this->avoid = 0;
-        //current_tm = ros::Time::now().toSec();
+        this->controller_avoid = this->avoid;
+        this->avoid = 0;
+        this->loop_index = 0;
+        this->controller_vx = this->v_xa_des;
+        this->controller_vy = this->v_ya_des;
+    }
+
+    // If in avoid state:
+    if (this->controller_avoid != 0) {
+        velcmdbody_x = this->controller_vx;
+        velcmdbody_y = this->controller_vy;
+        this->loop_index += 1;
+        if (this->loop_index > 75) {//1.5 seconds at 50hz
+            this->controller_avoid = 0;
+        }
+    }
+
+    #else
+    // If sensors give avoidance command, and not in avoidance state:
+    if (this->avoid != 0 && this->controller_avoid == 0) {
+        //printf("Avoiding %d\n", this->avoid);
+        this->controller_avoid = this->avoid;
+        this->avoid = 0;
         this->loop_index = 0;
     }
 
+    // If in avoid state:
     if (this->controller_avoid != 0) {
         velcmdbody_x = 0;
         if (this->controller_avoid == 1) {
@@ -73,11 +92,11 @@ void Controller::avoid_obstacles() {
 
 void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
 
-    float vel_x_est_velFrame =  cos(robot.att.yaw) * robot.vel.x - sin(robot.att.yaw) * robot.vel.y;
-    float vel_y_est_velFrame =  sin(robot.att.yaw) * robot.vel.x + cos(robot.att.yaw) * robot.vel.y;
+    this->vel_x_est_velFrame =  cos(robot.att.yaw) * robot.vel.x - sin(robot.att.yaw) * robot.vel.y;
+    this->vel_y_est_velFrame =  sin(robot.att.yaw) * robot.vel.x + cos(robot.att.yaw) * robot.vel.y;
     
-    float curr_error_vel_x = velcmdbody_x - vel_x_est_velFrame;
-    float curr_error_vel_y = velcmdbody_y - vel_y_est_velFrame;
+    float curr_error_vel_x = velcmdbody_x - this->vel_x_est_velFrame;
+    float curr_error_vel_y = velcmdbody_y - this->vel_y_est_velFrame;
     
     float D_error_x = (curr_error_vel_x - last_error_vel_x)/dt;
     float D_error_y = (curr_error_vel_y - last_error_vel_y)/dt;
@@ -102,7 +121,7 @@ void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
 void Controller::attitude_control() {
     //float setpoint = -80.0 * D2R;
     float yawerror = this->yaw_setpoint - this->robot.att.yaw;
-    this->signals_f.zb = bound_f(KP_YAW * yawerror, -MAX_YAW_RATE, MAX_YAW_RATE);
+    this->signals_f.zb = 0;//bound_f(KP_YAW * yawerror, -MAX_YAW_RATE, MAX_YAW_RATE);
 }
 
 // bound rate of change of these signals 
