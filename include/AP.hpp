@@ -9,7 +9,7 @@
 
 #include "radar_avoid_msgs/Command.h"
 #include "std_msgs/Int32.h"
-#include <msp_fc_interface/RcData.h>
+#include "rc_msgs/RcData.h"
 
 #include <algorithm>
 #include <cmath>

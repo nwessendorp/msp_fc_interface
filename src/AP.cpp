@@ -34,7 +34,7 @@ void radar_cmd_callback(const radar_avoid_msgs::Command::ConstPtr& command_msg) 
 }
 
 void publish_state_to_radar(ros::Publisher pub_st) {
-    msp_fc_interface::RcData rc_msg;
+    rc_msgs::RcData rc_msg;
     rc_msg.state[0] = controller->vel_x_est_velFrame;
     rc_msg.state[1] = controller->vel_y_est_velFrame;;
     pub_st.publish(rc_msg);
@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
     msp = new msp_node();// MSP comminication handled in this thread
     
     // All ROS communication handled here:
-    pub_st = n.advertise<msp_fc_interface::RcData>("/MAV_state", 1, true);
+    pub_st = n.advertise<rc_msgs::RcData>("/MAV_state", 1, true);
     ros::Subscriber sub_dvs_cmd  = n.subscribe("/roll_command", 1, dvs_cmd_callback);
     ros::Subscriber sub_radar_cmd  = n.subscribe("radar_commands", 1, radar_cmd_callback);
 
