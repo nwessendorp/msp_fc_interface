@@ -24,6 +24,7 @@ MspInterface::MspInterface() {
     this->rcData[2] = 1000;
 
     // https://stackoverflow.com/questions/42877001/how-do-i-read-gyro-information-from-cleanflight-using-msp
+    // Comminicate attitude data with controller:
     msp.register_callback(MSP::ATTITUDE, [this](Payload payload) {
         std::vector<int16_t> attitudeData(payload.size() / 2);
         for (int i = 0; i < (int) attitudeData.size(); i++) {
@@ -49,6 +50,7 @@ MspInterface::MspInterface() {
         #endif
         });
     
+    // Comminicate RC switches state with controller:
     msp.register_callback(MSP::RC, [this](Payload payload) {
         std::vector<uint16_t> droneRcData(payload.size() / 2);
         for (int i = 0; i < droneRcData.size(); i++) {
@@ -63,7 +65,7 @@ MspInterface::MspInterface() {
 
 void MspInterface::write_to_bf() {
 
-    //TAER
+    // TAER (must match iNav/betaflight settings)
     this->rcData[0] = controller->signals_i.thr; //t | t
     this->rcData[2] = controller->signals_i.yb; //p | e
     this->rcData[1] = controller->signals_i.xb; //r | a

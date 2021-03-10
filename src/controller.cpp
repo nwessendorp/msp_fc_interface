@@ -17,7 +17,7 @@
 #define KP_POS      1.0
 #define KP_VEL      3
 #define KD_VEL      1
-#define KI_VEL      0.5
+#define KI_VEL      1
 #define MAX_BANK    0.65   // 26 deg max bank
 #define K_FF        0.0
 #define MAX_VEL     2.5
@@ -35,28 +35,36 @@ void Controller::avoid_obstacles() {
     this->signals_f.thr = 0.3;
     float velcmdbody_x = 0.8;// ms-1
     float velcmdbody_y = 0;// ms-1
-    #ifdef USE_VO
 
+    #ifdef USE_VO
     // If sensors give avoidance command, and not in avoidance state:
     if (this->avoid != 0 && this->controller_avoid == 0) {
         this->controller_avoid = this->avoid;
         this->avoid = 0;
         this->loop_index = 0;
-        this->controller_vx = this->v_xa_des;
-        this->controller_vy = this->v_ya_des;
+        this->controller_vx = bound_f(this->v_xa_des, 0, 0.5);
+        this->controller_vy = bound_f(this->v_ya_des, -0.5, 0.5);
     }
 
     // If in avoid state:
     if (this->controller_avoid != 0) {
-        velcmdbody_x = this->controller_vx;
-        velcmdbody_y = this->controller_vy;
-        this->loop_index += 1;
-        if (this->loop_index > 75) {//1.5 seconds at 50hz
+        if (this->loop_index <= 10) {
+            velcmdbody_x = 0;
+            velcmdbody_y = 0;
+        } else if (this->loop_index > 10 && this->loop_index >= 100) {
+            velcmdbody_x = this->controller_vx;
+            velcmdbody_y = this->controller_vy;
+        } else if (this->loop_index > 100 && this->loop_index >= 120) {
+            velcmdbody_x = 0;
+            velcmdbody_y = 0;
+        } else if (this->loop_index > 120) {// 120 cycles at 50 Hz ~ 2.4s
             this->controller_avoid = 0;
         }
+        this->loop_index += 1;
     }
 
     #else
+    // Simple avoidance algorithm that translates to the side by approx 1m
     // If sensors give avoidance command, and not in avoidance state:
     if (this->avoid != 0 && this->controller_avoid == 0) {
         //printf("Avoiding %d\n", this->avoid);
@@ -84,7 +92,7 @@ void Controller::avoid_obstacles() {
     this->velocity_control(velcmdbody_x, velcmdbody_y);
     #else
     # warning CAUTION: THIS SHOULD NOT BE USED, ONLY FOR TESTING
-    // should try to determine (crude) velocity state from radar/dvs (assuming static env, or OPTICAL FLOW)
+    // should try to determine (crude) velocity state from IMU and radar/dvs (assuming static env, or using OPTICAL FLOW sensor)
     this->signals_f.yb = 1500 + velcmdbody_x*40;
     this->signals_f.xb = 1500 + velcmdbody_y*40;
     #endif
@@ -107,6 +115,7 @@ void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
     last_error_vel_x = curr_error_vel_x;
     last_error_vel_y = curr_error_vel_y;
 
+    // PID + FF
     float accx_cmd_velFrame = curr_error_vel_x * KP_VEL + D_error_x * KD_VEL + I_error_x * KI_VEL;//K_FF * velcmdbody_x;
     float accy_cmd_velFrame = curr_error_vel_y * KP_VEL + D_error_y * KD_VEL + I_error_y * KI_VEL;//K_FF * velcmdbody_y;
 
@@ -121,7 +130,8 @@ void Controller::velocity_control(float velcmdbody_x, float velcmdbody_y) {
 void Controller::attitude_control() {
     //float setpoint = -80.0 * D2R;
     float yawerror = this->yaw_setpoint - this->robot.att.yaw;
-    this->signals_f.zb = 0;//bound_f(KP_YAW * yawerror, -MAX_YAW_RATE, MAX_YAW_RATE);
+    // Set this to zero if alignment causes problems: (IMU should be good enough to handle)
+    this->signals_f.zb = bound_f(KP_YAW * yawerror, -MAX_YAW_RATE, MAX_YAW_RATE);
 }
 
 // bound rate of change of these signals 
@@ -209,13 +219,14 @@ void Controller::toActuators() {
  * Will also check if channel override is engaged, and set yawpoint
  */
 void Controller::change_input(char key) {
-    // Switch to MSP override:
+    // Switch to MSP override when flipping switch (set on aux2):
     if (this->channel2_curr > 1700 && this->channel2_prev < 1700){
         this->yaw_setpoint = this->robot.att.yaw;//from natnet or current orientation from inav
         printf("switched to onboard control\n"); 
-        printf("setting fixed yaw orientation...");
+        printf("setting fixed yaw orientation...\n");
     }
     #ifdef USE_NATNET
+    // Switch to control with keyboard: default not (input == 1)
     if (key == 'U' || key == 'u'){
 	    this->controller_avoid = 0;
         this->signals_i.thr = 1300;
@@ -232,6 +243,7 @@ void Controller::change_input(char key) {
     if (key == 'U' || key == 'u'){
         printf("\nWARNING: natnet not defined, cannot switch\n");
     #endif
+    // Force controller to avoid left or right (only possible with crude controller, not VO)
     } else if (key == 'X' || key == 'x') {
         this->avoid = 1;
     } else if (key == 'Z' || key == 'z') {
@@ -239,6 +251,9 @@ void Controller::change_input(char key) {
     }
 }
 
+/*
+* Function to modify desired state using asdw (use with caution)
+*/
 void Controller::set_keys(char key) {
     if ((key == 'D' || key == 'd') && this->signals_i.yb < 1700){
         this->signals_i.xb += 30;
@@ -258,6 +273,9 @@ void Controller::set_keys(char key) {
     }
 }
 
+/*
+* Function to get keyboard keys
+*/
 int Controller::getch(void){
     int ch;
     struct termios oldt;
